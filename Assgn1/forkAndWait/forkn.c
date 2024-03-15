@@ -10,7 +10,7 @@
 int main ()
 {
    int i, ncld, wtime, status;
-   pid_t cpid, mypid, parpid, specific;
+   pid_t cpid, mypid, parpid;
 
    /* Parent process gets its own ID and its parent's ID */
    mypid = getpid();
@@ -32,7 +32,6 @@ int main ()
          /* Child process gets its own ID and its parent's ID */
          mypid = getpid();
          parpid = getppid();
-         if(i==2) { specific=mypid; printf("\nspecific is %d\n",specific); }
          srand(mypid);
          wtime = 1 + rand() % 10;
          printf("Child %d: PID = %u, PPID = %u, work time = %d\n",
@@ -53,7 +52,7 @@ int main ()
    for (i=0; i<ncld; ++i) {
       /* Parent waits for any child to terminate */
       /* Use waitpid() if the wait is on a specific child */
-      waitpid(specific,&status,WNOHANG); //???
+      wait(&status);
 
       /* Parent uses the exit status to identify the child */
       printf("Parent: Child %d terminates...\n", WEXITSTATUS(status));
