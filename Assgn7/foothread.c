@@ -24,7 +24,7 @@ void foothread_create (foothread_t * thread, foothread_attr_t * attr, int (*star
         jointype[0]=FOOTHREAD_JOINABLE;
         tableindex=1;
         glob_semid=semget(IPC_PRIVATE, 1, IPC_CREAT|0666);
-        semctl(glob_semid, 0, SETVAL, 1);
+        semctl(glob_semid, 0, SETVAL, 0);
         foothread_mutex_init(&glob_mutex);
         foothread_mutex_init(&table_mutex);
     }
@@ -36,6 +36,7 @@ void foothread_create (foothread_t * thread, foothread_attr_t * attr, int (*star
     if(attr==NULL){
         attr=(foothread_attr_t *)malloc(sizeof(foothread_attr_t));
         *attr=FOOTHREAD_ATTR_INITIALIZER;
+        // printf("%d  %d\n",attr->jointype,attr->stacksize);
     }
     if(attr->stacksize==0){
         attr->stacksize=FOOTHREAD_DEFAULT_STACK_SIZE;
@@ -58,6 +59,7 @@ void foothread_create (foothread_t * thread, foothread_attr_t * attr, int (*star
     table[tableindex].ppid=thread->ppid;
     jointype[tableindex]=attr->jointype;
     tableindex++;
+    free(attr);
     foothread_mutex_unlock(&table_mutex);
 }
 
@@ -91,6 +93,7 @@ void foothread_exit(){
         sembuf.sem_op=-numOfJoinableThreads;
         sembuf.sem_flg=0;
         semop(glob_semid, &sembuf, 1);
+        // printf("leader exiting\n");
 
         // destroying resources
         semctl(glob_semid, 0, IPC_RMID);
@@ -112,6 +115,7 @@ void foothread_exit(){
         sembuf.sem_op=1;
         sembuf.sem_flg=0;
         semop(glob_semid, &sembuf, 1);
+        // printf("thread %d exiting\n",gettid());
     }
 }
 
