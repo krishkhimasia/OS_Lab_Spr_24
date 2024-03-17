@@ -4,21 +4,28 @@
 
 int *sum, *numOfChildren, *P;
 foothread_barrier_t *barrier;
+foothread_mutex_t mtx_print;        // mutex for printing
+foothread_mutex_t *mtxs;            // mutex for each node
 
 void node(void *arg){
     int i=*(int *)arg;
     foothread_barrier_wait(&barrier[i]);
     if(numOfChildren[i]){
+        foothread_mutex_lock(&mtx_print);
         printf("Internal node   %d gets the partial sum %d from its children\n",i,sum[i]);
+        foothread_mutex_unlock(&mtx_print);
     }
     if(P[i]!=-1){
+        foothread_mutex_lock(&mtxs[P[i]]);
         sum[P[i]]+=sum[i];
+        foothread_mutex_unlock(&mtxs[P[i]]);
         foothread_barrier_wait(&barrier[P[i]]);
     }
     foothread_exit();
 }
 
 int main(){
+    foothread_mutex_init(&mtx_print);
     FILE *fp=fopen("tree.txt","r");
     int n;
     int root=-1;
@@ -27,6 +34,7 @@ int main(){
     P=(int *)malloc(n*sizeof(int));
     sum=(int *)malloc(n*sizeof(int));
     barrier=(foothread_barrier_t *)malloc(n*sizeof(foothread_barrier_t));
+    mtxs=(foothread_mutex_t *)malloc(n*sizeof(foothread_mutex_t));
     for(int i=0;i<n;i++){
         P[i]=-1;
         numOfChildren[i]=0;
@@ -43,6 +51,7 @@ int main(){
 
     for(int i=0;i<n;i++){
         foothread_barrier_init(&barrier[i],numOfChildren[i]+1);
+        foothread_mutex_init(&mtxs[i]);
     }
 
     for(int i=0;i<n;i++){
