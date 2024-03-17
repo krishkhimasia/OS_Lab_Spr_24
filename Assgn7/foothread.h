@@ -37,6 +37,7 @@ void foothread_exit();
 
 // mutexes
 typedef struct foothread_mutex_t{
+    int init;
     int semid;
     struct sembuf sembuf;
     key_t key;

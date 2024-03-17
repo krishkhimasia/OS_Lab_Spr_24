@@ -6,6 +6,7 @@ int leadertid=-1;
 int firstrun=0;
 int numOfJoinableThreads=0;
 int glob_semid;
+struct sembuf glob_sembuf;
 foothread_t table[FOOTHREAD_THREADS_MAX];
 int jointype[FOOTHREAD_THREADS_MAX];
 int tableindex=0;
@@ -23,7 +24,7 @@ void foothread_create (foothread_t * thread, foothread_attr_t * attr, int (*star
         jointype[0]=FOOTHREAD_JOINABLE;
         tableindex=1;
         glob_semid=semget(IPC_PRIVATE, 1, IPC_CREAT|0666);
-        semctl(glob_semid, 0, SETVAL, 0);
+        semctl(glob_semid, 0, SETVAL, 1);
         foothread_mutex_init(&glob_mutex);
         foothread_mutex_init(&table_mutex);
     }
@@ -128,6 +129,7 @@ void foothread_mutex_init ( foothread_mutex_t * mutex){
     mutex->semflg=0;
     mutex->lockedBytid=gettid();        // some initial value, will be overwritten when locked
     mutex->isLocked=0;
+    mutex->init=1;
     semctl(mutex->semid, 0, SETVAL, mutex->semval);
 }
 
@@ -136,12 +138,16 @@ void foothread_mutex_lock ( foothread_mutex_t * mutex){
         printf("foothread_mutex_lock: mutex is NULL\n");
         exit(1);
     }
+    if(mutex->init!=1){
+        printf("foothread_mutex_lock: mutex is not initialized\n");
+        exit(1);
+    }
     mutex->sembuf.sem_num=0;
     mutex->sembuf.sem_op=-1;
     mutex->sembuf.sem_flg=0;
-    mutex->lockedBytid=gettid();
-    mutex->isLocked=1;
     semop(mutex->semid, &mutex->sembuf, 1);
+    mutex->isLocked=1;
+    mutex->lockedBytid=gettid();
 }
 
 void foothread_mutex_unlock ( foothread_mutex_t * mutex){
@@ -151,6 +157,10 @@ void foothread_mutex_unlock ( foothread_mutex_t * mutex){
     }
     if(mutex->lockedBytid!=gettid()){
         printf("foothread_mutex_unlock: thread did not lock the mutex\n");
+        exit(1);
+    }
+    if(mutex->init!=1){
+        printf("foothread_mutex_lock: mutex is not initialized\n");
         exit(1);
     }
     if(mutex->isLocked==0){
@@ -169,6 +179,10 @@ void foothread_mutex_destroy ( foothread_mutex_t * mutex){
         printf("foothread_mutex_destroy: mutex is NULL\n");
         exit(1);
     }
+    if(mutex->init!=1){
+        printf("foothread_mutex_lock: mutex is not initialized\n");
+        exit(1);
+    }
     semctl(mutex->semid, 0, IPC_RMID);
 }
 
@@ -177,6 +191,11 @@ void foothread_barrier_init ( foothread_barrier_t * barrier, int count){
         printf("foothread_barrier_init: barrier is NULL\n");
         exit(1);
     }
+    if(count<1){
+        printf("foothread_barrier_init: count is less than 1\n");
+        exit(1);
+    }
+    if(!glob_mutex.init) foothread_mutex_init(&glob_mutex);
     foothread_mutex_lock(&glob_mutex);
     barrier->init=1;
     barrier->count=count;
@@ -205,8 +224,12 @@ void foothread_barrier_wait ( foothread_barrier_t * barrier){
     sembuf.sem_num=0;
     sembuf.sem_flg=0;
     foothread_mutex_lock(&glob_mutex);
+    if(barrier->n==1){
+        foothread_mutex_unlock(&glob_mutex);
+        return;
+    }
     if(barrier->count==1){
-        sembuf.sem_op=barrier->n;
+        sembuf.sem_op=barrier->n-1;
         foothread_mutex_unlock(&glob_mutex);
         semop(barrier->semid, &sembuf, 1);
         foothread_mutex_lock(&glob_mutex);
@@ -224,6 +247,10 @@ void foothread_barrier_wait ( foothread_barrier_t * barrier){
 void foothread_barrier_destroy ( foothread_barrier_t * barrier){
     if(barrier==NULL){
         printf("foothread_barrier_destroy: barrier is NULL\n");
+        exit(1);
+    }
+    if(barrier->init!=1){
+        printf("foothread_barrier_wait: barrier is not initialized\n");
         exit(1);
     }
     semctl(barrier->semid, 0, IPC_RMID);

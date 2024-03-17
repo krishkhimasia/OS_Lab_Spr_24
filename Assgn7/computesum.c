@@ -7,8 +7,8 @@ foothread_barrier_t *barrier;
 
 void node(void *arg){
     int i=*(int *)arg;
+    foothread_barrier_wait(&barrier[i]);
     if(numOfChildren[i]){
-        foothread_barrier_wait(&barrier[i]);
         printf("Internal node   %d gets the partial sum %d from its children\n",i,sum[i]);
     }
     if(P[i]!=-1){
