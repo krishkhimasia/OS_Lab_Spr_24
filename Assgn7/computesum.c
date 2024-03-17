@@ -57,7 +57,12 @@ int main(){
     for(int i=0;i<n;i++){
         if(numOfChildren[i]==0){
             printf("Leaf node   %d :: Enter a positive integer: ",i);
-            scanf("%d",&sum[i]);   
+            scanf("%d",&sum[i]);
+            while(sum[i]<=0){
+                printf("Enter positive integer!\n");
+                printf("Leaf node   %d :: Enter a positive integer: ",i);
+                scanf("%d",&sum[i]);
+            }
         }
     }
 
